@@ -42,11 +42,65 @@
       white-space: pre-wrap;
       word-break: break-word;
     }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.45);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal {
+      background: white;
+      width: 90%;
+      max-width: 420px;
+      border-radius: 14px;
+      padding: 20px;
+      position: relative;
+      box-shadow: 0 6px 24px rgba(0,0,0,.2);
+      text-align: center;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 22px;
+      cursor: pointer;
+      color: #666;
+    }
+
+    .modal h3 {
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+
+    .modal p {
+      margin-bottom: 20px;
+      color: #555;
+    }
+
+    .modal .actions {
+      display: flex;
+      gap: 10px;
+      flex-direction: column;
+    }
+
+    .secondary-btn {
+      background: #e5e7eb;
+      color: #222;
+    }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h1>新增花費測試</h1>
+  <div class="box" id="topSection">
+    <h1>新增花費</h1>
     <p>這一頁測試能不能把花費寫進 Google Sheets。</p>
   </div>
 
@@ -78,6 +132,19 @@
   <div class="box">
     <h2>狀態</h2>
     <pre id="statusBox">準備中...</pre>
+  </div>
+
+  <!-- 成功彈窗 -->
+  <div class="modal-overlay" id="successModal">
+    <div class="modal">
+      <span class="close-btn" id="closeModalBtn">&times;</span>
+      <h3>新增成功</h3>
+      <p>你的花費資料已經成功儲存。</p>
+      <div class="actions">
+        <button id="addAnotherBtn">再新增一筆</button>
+        <button id="backHomeBtn" class="secondary-btn">確認返回首頁</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -117,12 +184,25 @@
         });
 
         document.getElementById("expenseDate").value = new Date().toISOString().split("T")[0];
-
         statusBox.textContent = "成功：表單已載入";
       } catch (error) {
         statusBox.textContent = "讀取失敗：" + error.message;
         console.error(error);
       }
+    }
+
+    function clearForm() {
+      document.getElementById("expenseAmount").value = "";
+      document.getElementById("expenseNote").value = "";
+      document.getElementById("expenseDate").value = new Date().toISOString().split("T")[0];
+    }
+
+    function openSuccessModal() {
+      document.getElementById("successModal").style.display = "flex";
+    }
+
+    function closeSuccessModal() {
+      document.getElementById("successModal").style.display = "none";
     }
 
     async function addExpense() {
@@ -153,7 +233,13 @@
         });
 
         const result = await response.json();
-        statusBox.textContent = "新增結果：\n" + JSON.stringify(result, null, 2);
+
+        if (result.success) {
+          statusBox.textContent = "新增成功";
+          openSuccessModal();
+        } else {
+          statusBox.textContent = "新增失敗：" + JSON.stringify(result);
+        }
       } catch (error) {
         statusBox.textContent = "新增失敗：" + error.message;
         console.error(error);
@@ -161,6 +247,29 @@
     }
 
     document.getElementById("addExpenseBtn").addEventListener("click", addExpense);
+
+    document.getElementById("addAnotherBtn").addEventListener("click", function() {
+      closeSuccessModal();
+      clearForm();
+      document.getElementById("expenseAmount").focus();
+    });
+
+    document.getElementById("backHomeBtn").addEventListener("click", function() {
+      closeSuccessModal();
+      clearForm();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    document.getElementById("closeModalBtn").addEventListener("click", function() {
+      closeSuccessModal();
+    });
+
+    window.addEventListener("click", function(event) {
+      const modal = document.getElementById("successModal");
+      if (event.target === modal) {
+        closeSuccessModal();
+      }
+    });
 
     loadDropdowns();
   </script>
