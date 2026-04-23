@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>讀取資料測試</title>
+  <title>下拉選單測試</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -20,6 +20,13 @@
       margin-right: auto;
       box-shadow: 0 2px 8px rgba(0,0,0,.08);
     }
+    select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
     pre {
       background: #eee;
       padding: 12px;
@@ -31,18 +38,22 @@
 </head>
 <body>
   <div class="box">
-    <h1>讀取資料測試</h1>
-    <p>這一頁只測試能不能讀到 Settings 和 Categories。</p>
+    <h1>下拉選單測試</h1>
+    <p>這一頁測試使用者與類別能不能放進下拉選單。</p>
   </div>
 
   <div class="box">
-    <h2>Settings</h2>
-    <pre id="settingsBox">載入中...</pre>
+    <h2>使用者</h2>
+    <select id="userSelect">
+      <option>載入中...</option>
+    </select>
   </div>
 
   <div class="box">
-    <h2>Categories</h2>
-    <pre id="categoriesBox">載入中...</pre>
+    <h2>類別</h2>
+    <select id="categorySelect">
+      <option>載入中...</option>
+    </select>
   </div>
 
   <div class="box">
@@ -53,30 +64,47 @@
   <script>
     const API_BASE = "https://script.google.com/macros/s/AKfycbxK9v6rawgtx5F3_MxmKpNipqtD6zta9pgiWvpz-nKddRMF4ILkQMwMIaD8BljsfGlR/exec";
 
-    async function runTest() {
-      const settingsBox = document.getElementById("settingsBox");
-      const categoriesBox = document.getElementById("categoriesBox");
+    async function loadDropdowns() {
+      const userSelect = document.getElementById("userSelect");
+      const categorySelect = document.getElementById("categorySelect");
       const statusBox = document.getElementById("statusBox");
 
       try {
         statusBox.textContent = "開始讀取 Settings...";
         const settingsResponse = await fetch(API_BASE + "?action=getSettings");
-        const settingsText = await settingsResponse.text();
-        settingsBox.textContent = settingsText;
+        const settings = await settingsResponse.json();
+
+        userSelect.innerHTML = "";
+        const users = [settings.user1_name, settings.user2_name].filter(Boolean);
+
+        users.forEach(function(user) {
+          const option = document.createElement("option");
+          option.value = user;
+          option.textContent = user;
+          userSelect.appendChild(option);
+        });
 
         statusBox.textContent = "開始讀取 Categories...";
         const categoriesResponse = await fetch(API_BASE + "?action=getCategories");
-        const categoriesText = await categoriesResponse.text();
-        categoriesBox.textContent = categoriesText;
+        const categories = await categoriesResponse.json();
 
-        statusBox.textContent = "成功：已讀到 API 資料";
+        categorySelect.innerHTML = "";
+
+        categories.forEach(function(category) {
+          const option = document.createElement("option");
+          option.value = category.name;
+          option.textContent = category.name;
+          categorySelect.appendChild(option);
+        });
+
+        statusBox.textContent = "成功：下拉選單已載入";
       } catch (error) {
         statusBox.textContent = "失敗：" + error.message;
         console.error(error);
       }
     }
 
-    runTest();
+    loadDropdowns();
   </script>
 </body>
 </html>
