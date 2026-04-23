@@ -3,9 +3,80 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>測試頁</title>
+  <title>讀取資料測試</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f7fb;
+    }
+    .box {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+    pre {
+      background: #eee;
+      padding: 12px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
 </head>
 <body>
-  <h1>如果你看到這行，代表 GitHub Pages 已更新</h1>
+  <div class="box">
+    <h1>讀取資料測試</h1>
+    <p>這一頁只測試能不能讀到 Settings 和 Categories。</p>
+  </div>
+
+  <div class="box">
+    <h2>Settings</h2>
+    <pre id="settingsBox">載入中...</pre>
+  </div>
+
+  <div class="box">
+    <h2>Categories</h2>
+    <pre id="categoriesBox">載入中...</pre>
+  </div>
+
+  <div class="box">
+    <h2>狀態</h2>
+    <pre id="statusBox">準備中...</pre>
+  </div>
+
+  <script>
+    const API_BASE = "https://script.google.com/macros/s/AKfycbxK9v6rawgtx5F3_MxmKpNipqtD6zta9pgiWvpz-nKddRMF4ILkQMwMIaD8BljsfGlR/exec";
+
+    async function runTest() {
+      const settingsBox = document.getElementById("settingsBox");
+      const categoriesBox = document.getElementById("categoriesBox");
+      const statusBox = document.getElementById("statusBox");
+
+      try {
+        statusBox.textContent = "開始讀取 Settings...";
+        const settingsResponse = await fetch(API_BASE + "?action=getSettings");
+        const settingsText = await settingsResponse.text();
+        settingsBox.textContent = settingsText;
+
+        statusBox.textContent = "開始讀取 Categories...";
+        const categoriesResponse = await fetch(API_BASE + "?action=getCategories");
+        const categoriesText = await categoriesResponse.text();
+        categoriesBox.textContent = categoriesText;
+
+        statusBox.textContent = "成功：已讀到 API 資料";
+      } catch (error) {
+        statusBox.textContent = "失敗：" + error.message;
+        console.error(error);
+      }
+    }
+
+    runTest();
+  </script>
 </body>
 </html>
