@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>新增花費</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 16px 16px 90px 16px;
+      background: #f5f7fb;
+    }
+    .box {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #2f6fed;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    pre {
+      background: #eee;
+      padding: 12px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.45);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal {
+      background: white;
+      width: 90%;
+      max-width: 420px;
+      border-radius: 14px;
+      padding: 20px;
+      position: relative;
+      box-shadow: 0 6px 24px rgba(0,0,0,.2);
+      text-align: center;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 22px;
+      cursor: pointer;
+      color: #666;
+    }
+
+    .modal h3 {
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+
+    .modal p {
+      margin-bottom: 20px;
+      color: #555;
+    }
+
+    .modal .actions {
+      display: flex;
+      gap: 10px;
+      flex-direction: column;
+    }
+
+    .secondary-btn {
+      background: #e5e7eb;
+      color: #222;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      background: #fff;
+      border-top: 1px solid #ddd;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      z-index: 999;
+    }
+
+    .nav-link {
+      text-align: center;
+      padding: 10px 6px;
+      text-decoration: none;
+      color: #333;
+      font-size: 13px;
+    }
+
+    .nav-link.active {
+      color: #2f6fed;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>新增花費</h1>
+    <p>新增一筆新的花費資料。</p>
+  </div>
+
+  <div class="box">
+    <h2>新增花費</h2>
+
+    <label>日期</label>
+    <input type="date" id="expenseDate">
+
+    <label>金額</label>
+    <input type="number" id="expenseAmount" placeholder="例如 120">
+
+    <label>類別</label>
+    <select id="categorySelect">
+      <option>載入中...</option>
+    </select>
+
+    <label>備註</label>
+    <input type="text" id="expenseNote" placeholder="例如 午餐">
+
+    <label>使用者</label>
+    <select id="userSelect">
+      <option>載入中...</option>
+    </select>
+
+    <button id="addExpenseBtn">新增花費</button>
+  </div>
+
+  <div class="box">
+    <h2>狀態</h2>
+    <pre id="statusBox">準備中...</pre>
+  </div>
+
+  <div class="modal-overlay" id="successModal">
+    <div class="modal">
+      <span class="close-btn" id="closeModalBtn">&times;</span>
+      <h3>新增成功</h3>
+      <p>你的花費資料已經成功儲存。</p>
+      <div class="actions">
+        <button id="addAnotherBtn">再新增一筆</button>
+        <button id="backHomeBtn" class="secondary-btn">確認返回首頁</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a class="nav-link" href="add-shopping.html">新增購買提醒</a>
+    <a class="nav-link active" href="add-expense.html">新增花費</a>
+    <a class="nav-link" href="index.html">首頁</a>
+    <a class="nav-link" href="shopping-list.html">顯示購買清單</a>
+    <a class="nav-link" href="monthly-report.html">月統計</a>
+  </nav>
+
+  <script>
+    const API_BASE = "https://script.google.com/macros/s/AKfycbxK9v6rawgtx5F3_MxmKpNipqtD6zta9pgiWvpz-nKddRMF4ILkQMwMIaD8BljsfGlR/exec";
+
+    async function loadDropdowns() {
+      const userSelect = document.getElementById("userSelect");
+      const categorySelect = document.getElementById("categorySelect");
+      const statusBox = document.getElementById("statusBox");
+
+      try {
+        statusBox.textContent = "開始讀取 Settings...";
+        const settingsResponse = await fetch(API_BASE + "?action=getSettings");
+        const settings = await settingsResponse.json();
+
+        userSelect.innerHTML = "";
+        const users = [settings.user1_name, settings.user2_name].filter(Boolean);
+
+        users.forEach(function(user) {
+          const option = document.createElement("option");
+          option.value = user;
+          option.textContent = user;
+          userSelect.appendChild(option);
+        });
+
+        statusBox.textContent = "開始讀取 Categories...";
+        const categoriesResponse = await fetch(API_BASE + "?action=getCategories");
+        const categories = await categoriesResponse.json();
+
+        categorySelect.innerHTML = "";
+
+        categories.forEach(function(category) {
+          const option = document.createElement("option");
+          option.value = category.name;
+          option.textContent = category.name;
+          categorySelect.appendChild(option);
+        });
+
+        document.getElementById("expenseDate").value = new Date().toISOString().split("T")[0];
+        statusBox.textContent = "成功：表單已載入";
+      } catch (error) {
+        statusBox.textContent = "讀取失敗：" + error.message;
+        console.error(error);
+      }
+    }
+
+    function clearForm() {
+      document.getElementById("expenseAmount").value = "";
+      document.getElementById("expenseNote").value = "";
+      document.getElementById("expenseDate").value = new Date().toISOString().split("T")[0];
+    }
+
+    function openSuccessModal() {
+      document.getElementById("successModal").style.display = "flex";
+    }
+
+    function closeSuccessModal() {
+      document.getElementById("successModal").style.display = "none";
+    }
+
+    async function addExpense() {
+      const statusBox = document.getElementById("statusBox");
+
+      const payload = {
+        action: "addExpense",
+        date: document.getElementById("expenseDate").value,
+        amount: document.getElementById("expenseAmount").value,
+        category: document.getElementById("categorySelect").value,
+        note: document.getElementById("expenseNote").value,
+        user: document.getElementById("userSelect").value
+      };
+
+      if (!payload.date || !payload.amount || !payload.category || !payload.user) {
+        statusBox.textContent = "請填寫完整資料";
+        return;
+      }
+
+      try {
+        statusBox.textContent = "送出中...";
+        const response = await fetch(API_BASE, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          statusBox.textContent = "新增成功";
+          openSuccessModal();
+        } else {
+          statusBox.textContent = "新增失敗：" + JSON.stringify(result);
+        }
+      } catch (error) {
+        statusBox.textContent = "新增失敗：" + error.message;
+        console.error(error);
+      }
+    }
+
+    document.getElementById("addExpenseBtn").addEventListener("click", addExpense);
+
+    document.getElementById("addAnotherBtn").addEventListener("click", function() {
+      closeSuccessModal();
+      clearForm();
+      document.getElementById("expenseAmount").focus();
+    });
+
+    document.getElementById("backHomeBtn").addEventListener("click", function() {
+      window.location.href = "index.html";
+    });
+
+    document.getElementById("closeModalBtn").addEventListener("click", function() {
+      closeSuccessModal();
+    });
+
+    window.addEventListener("click", function(event) {
+      const modal = document.getElementById("successModal");
+      if (event.target === modal) {
+        closeSuccessModal();
+      }
+    });
+
+    loadDropdowns();
+  </script>
+</body>
+</html>
