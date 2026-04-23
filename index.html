@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>首頁</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -124,6 +125,27 @@
       font-size: 13px;
     }
 
+    .chart-wrapper {
+      max-width: 420px;
+      margin: 0 auto 20px auto;
+    }
+
+    .category-list {
+      margin-top: 12px;
+    }
+
+    .category-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+
+    .category-item:last-child {
+      border-bottom: none;
+    }
+
     @media (max-width: 600px) {
       .month-title {
         font-size: 18px;
@@ -157,6 +179,14 @@
     </div>
 
     <div class="card">
+      <h2>當月花費比例</h2>
+      <div class="chart-wrapper">
+        <canvas id="expensePieChart"></canvas>
+      </div>
+      <div id="categoryList" class="category-list"></div>
+    </div>
+
+    <div class="card">
       <h2>最近 5 筆花費</h2>
       <div id="recentExpenses">
         <div class="empty-text">載入中...</div>
@@ -183,6 +213,20 @@
     let allExpenses = [];
     let currentYear;
     let currentMonth;
+    let pieChart = null;
+
+    const chartColors = [
+      "#2f6fed",
+      "#f59e0b",
+      "#10b981",
+      "#ef4444",
+      "#8b5cf6",
+      "#06b6d4",
+      "#f97316",
+      "#84cc16",
+      "#ec4899",
+      "#6b7280"
+    ];
 
     function initCurrentMonth() {
       const now = new Date();
@@ -209,33 +253,97 @@
       }
     }
 
+    function getCurrentMonthExpenses() {
+      return allExpenses.filter(function(item) {
+        const d = new Date(item.date);
+        return !isNaN(d.getTime()) && d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+      });
+    }
+
     function renderHome() {
       updateMonthTitle();
       renderMonthlyTotal();
+      renderPieChart();
       renderRecentExpenses();
     }
 
     function renderMonthlyTotal() {
       const monthlyTotalEl = document.getElementById("monthlyTotal");
+      const currentExpenses = getCurrentMonthExpenses();
 
-      const total = allExpenses.reduce(function(sum, item) {
-        const d = new Date(item.date);
-        if (!isNaN(d.getTime()) && d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
-          return sum + Number(item.amount || 0);
-        }
-        return sum;
+      const total = currentExpenses.reduce(function(sum, item) {
+        return sum + Number(item.amount || 0);
       }, 0);
 
       monthlyTotalEl.textContent = "NT$ " + total;
     }
 
+    function renderPieChart() {
+      const currentExpenses = getCurrentMonthExpenses();
+      const categoryMap = {};
+      const categoryListEl = document.getElementById("categoryList");
+
+      currentExpenses.forEach(function(item) {
+        const category = item.category || "未分類";
+        categoryMap[category] = (categoryMap[category] || 0) + Number(item.amount || 0);
+      });
+
+      const labels = Object.keys(categoryMap);
+      const data = Object.values(categoryMap);
+      const total = data.reduce(function(sum, value) {
+        return sum + value;
+      }, 0);
+
+      if (pieChart) {
+        pieChart.destroy();
+      }
+
+      const ctx = document.getElementById("expensePieChart").getContext("2d");
+
+      if (labels.length === 0) {
+        categoryListEl.innerHTML = '<div class="empty-text">這個月目前沒有花費資料</div>';
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        return;
+      }
+
+      pieChart = new Chart(ctx, {
+        type: "pie",
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: chartColors.slice(0, labels.length)
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: "bottom"
+            }
+          }
+        }
+      });
+
+      categoryListEl.innerHTML = "";
+
+      labels.forEach(function(label, index) {
+        const amount = data[index];
+        const percent = total > 0 ? ((amount / total) * 100).toFixed(1) : 0;
+
+        const row = document.createElement("div");
+        row.className = "category-item";
+        row.innerHTML = `
+          <span>${label}</span>
+          <span>NT$ ${amount}（${percent}%）</span>
+        `;
+        categoryListEl.appendChild(row);
+      });
+    }
+
     function renderRecentExpenses() {
       const recentExpensesEl = document.getElementById("recentExpenses");
-
-      const filtered = allExpenses.filter(function(item) {
-        const d = new Date(item.date);
-        return !isNaN(d.getTime()) && d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-      });
+      const filtered = getCurrentMonthExpenses();
 
       filtered.sort(function(a, b) {
         return new Date(b.createdAt) - new Date(a.createdAt);
