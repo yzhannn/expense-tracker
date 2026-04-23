@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>記帳與待買清單</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f5f7fb;
+      color: #222;
+    }
+    h1, h2 {
+      margin-top: 0;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      box-sizing: border-box;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    button {
+      background: #2f6fed;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    button:hover {
+      background: #1f57c8;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th, td {
+      border-bottom: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+      font-size: 14px;
+    }
+    .summary {
+      font-size: 20px;
+      font-weight: bold;
+      color: #2f6fed;
+    }
+    .item-done {
+      text-decoration: line-through;
+      color: #888;
+    }
+    .small {
+      font-size: 12px;
+      color: #666;
+    }
+    .status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: green;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>記帳與待買清單</h1>
+
+    <div class="card">
+      <h2>本月總花費</h2>
+      <div id="monthlyTotal" class="summary">載入中...</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>新增花費</h2>
+        <label>日期</label>
+        <input type="date" id="expenseDate" />
+
+        <label>金額</label>
+        <input type="number" id="expenseAmount" placeholder="例如 120" />
+
+        <label>類別</label>
+        <select id="expenseCategory"></select>
+
+        <label>備註</label>
+        <input type="text" id="expenseNote" placeholder="例如 午餐" />
+
+        <label>使用者</label>
+        <select id="expenseUser"></select>
+
+        <button onclick="addExpense()">新增花費</button>
+        <div id="expenseStatus" class="status"></div>
+      </div>
+
+      <div class="card">
+        <h2>新增待買項目</h2>
+        <label>品名</label>
+        <input type="text" id="shoppingName" placeholder="例如 牛奶" />
+
+        <label>分類</label>
+        <select id="shoppingType">
+          <option value="食材">食材</option>
+          <option value="生活用品">生活用品</option>
+          <option value="其他">其他</option>
+        </select>
+
+        <label>備註</label>
+        <input type="text" id="shoppingNote" placeholder="例如 低脂" />
+
+        <label>建立者</label>
+        <select id="shoppingUser"></select>
+
+        <button onclick="addShoppingItem()">新增待買項目</button>
+        <div id="shoppingStatus" class="status"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>最近花費</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>金額</th>
+            <th>類別</th>
+            <th>備註</th>
+            <th>使用者</th>
+          </tr>
+        </thead>
+        <tbody id="expensesTable"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>待買清單</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>品名</th>
+            <th>分類</th>
+            <th>備註</th>
+            <th>狀態</th>
+            <th>建立者</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="shoppingTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://script.googleusercontent.com/macros/echo?user_content_key=AWDtjMX3Z6Fjiu3p6L5kWTAP9xwqw3V1qSX18rLiQHy7WuaC53rNrPrjENGdlueF6siyc3IzklJafKG0KHCHi-rdv8aXqAI9IWZiUaHiF2buzhkFznuggoVYBHs_gMgs_LTFoxDuyZRBs5C78pqnYb_28XTiEbbHBuwoc0lz8dXLlgWJOE-QDGO8Ns0Q7ZV9RS5b0e8QrPrmuhsR5J_K3Emf7XA9fCGCddkzNSV6cyV0nM8LxptiMoQ&lib=MAgikahC0vFHrj_2e0tn34mf9ULt4oFEb';
+
+    let settings = {};
+    let categories = [];
+    let expenses = [];
+    let shoppingList = [];
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      return await res.json();
+    }
+
+    async function postJson(data) {
+      const res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(data)
+      });
+      return await res.json();
+    }
+
+    async function init() {
+      document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+
+      settings = await fetchJson(API_BASE + '?action=getSettings');
+      categories = await fetchJson(API_BASE + '?action=getCategories');
+      expenses = await fetchJson(API_BASE + '?action=getExpenses');
+      shoppingList = await fetchJson(API_BASE + '?action=getShoppingList');
+
+      renderUsers();
+      renderCategories();
+      renderExpenses();
+      renderShoppingList();
+      renderMonthlyTotal();
+    }
+
+    function renderUsers() {
+      const users = [settings.user1_name, settings.user2_name];
+      const expenseUser = document.getElementById('expenseUser');
+      const shoppingUser = document.getElementById('shoppingUser');
+
+      expenseUser.innerHTML = '';
+      shoppingUser.innerHTML = '';
+
+      users.forEach(user => {
+        const option1 = document.createElement('option');
+        option1.value = user;
+        option1.textContent = user;
+        expenseUser.appendChild(option1);
+
+        const option2 = document.createElement('option');
+        option2.value = user;
+        option2.textContent = user;
+        shoppingUser.appendChild(option2);
+      });
+    }
+
+    function renderCategories() {
+      const select = document.getElementById('expenseCategory');
+      select.innerHTML = '';
+      categories
+        .filter(c => c.enabled === true || c.enabled === 'TRUE' || c.enabled === 'true')
+        .sort((a, b) => Number(a.sort) - Number(b.sort))
+        .forEach(c => {
+          const option = document.createElement('option');
+          option.value = c.name;
+          option.textContent = c.name;
+          select.appendChild(option);
+        });
+    }
+
+    function renderExpenses() {
+      const tbody = document.getElementById('expensesTable');
+      tbody.innerHTML = '';
+
+      const sorted = [...expenses].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20);
+
+      sorted.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${formatDate(item.date)}</td>
+          <td>${item.amount}</td>
+          <td>${item.category}</td>
+          <td>${item.note || ''}</td>
+          <td>${item.user}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderShoppingList() {
+      const tbody = document.getElementById('shoppingTable');
+      tbody.innerHTML = '';
+
+      shoppingList.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="${item.status === '已購買' ? 'item-done' : ''}">${item.name}</td>
+          <td>${item.type}</td>
+          <td>${item.note || ''}</td>
+          <td>${item.status}</td>
+          <td>${item.createdBy}</td>
+          <td>
+            ${
+              item.status === '未購買'
+                ? `<button onclick="markBought('${item.id}')" style="width:auto;padding:6px 10px;">標記已購買</button>`
+                : ''
+            }
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderMonthlyTotal() {
+      const now = new Date();
+      const month = now.getMonth();
+      const year = now.getFullYear();
+
+      const total = expenses.reduce((sum, item) => {
+        const d = new Date(item.date);
+        if (d.getFullYear() === year && d.getMonth() === month) {
+          return sum + Number(item.amount || 0);
+        }
+        return sum;
+      }, 0);
+
+      document.getElementById('monthlyTotal').textContent = '
+``` + total;
+    }
+
+    async function addExpense() {
+      const date = document.getElementById('expenseDate').value;
+      const amount = document.getElementById('expenseAmount').value;
+      const category = document.getElementById('expenseCategory').value;
+      const note = document.getElementById('expenseNote').value;
+      const user = document.getElementById('expenseUser').value;
+      const status = document.getElementById('expenseStatus');
+
+      if (!date || !amount || !category || !user) {
+        status.textContent = '請填寫完整花費資料';
+        status.className = 'status error';
+        return;
+      }
+
+      const result = await postJson({
+        action: 'addExpense',
+        date,
+        amount,
+        category,
+        note,
+        user
+      });
+
+      if (result.success) {
+        status.textContent = '新增花費成功';
+        status.className = 'status';
+        document.getElementById('expenseAmount').value = '';
+        document.getElementById('expenseNote').value = '';
+        expenses = await fetchJson(API_BASE + '?action=getExpenses');
+        renderExpenses();
+        renderMonthlyTotal();
+      } else {
+        status.textContent = '新增失敗';
+        status.className = 'status error';
+      }
+    }
+
+    async function addShoppingItem() {
+      const name = document.getElementById('shoppingName').value;
+      const type = document.getElementById('shoppingType').value;
+      const note = document.getElementById('shoppingNote').value;
+      const createdBy = document.getElementById('shoppingUser').value;
+      const status = document.getElementById('shoppingStatus');
+
+      if (!name || !type || !createdBy) {
+        status.textContent = '請填寫完整待買資料';
+        status.className = 'status error';
+        return;
+      }
+
+      const result = await postJson({
+        action: 'addShoppingItem',
+        name,
+        type,
+        note,
+        createdBy
+      });
+
+      if (result.success) {
+        status.textContent = '新增待買項目成功';
+        status.className = 'status';
+        document.getElementById('shoppingName').value = '';
+        document.getElementById('shoppingNote').value = '';
+        shoppingList = await fetchJson(API_BASE + '?action=getShoppingList');
+        renderShoppingList();
+      } else {
+        status.textContent = '新增失敗';
+        status.className = 'status error';
+      }
+    }
+
+    async function markBought(id) {
+      const result = await postJson({
+        action: 'updateShoppingStatus',
+        id,
+        status: '已購買'
+      });
+
+      if (result.success) {
+        shoppingList = await fetchJson(API_BASE + '?action=getShoppingList');
+        renderShoppingList();
+      } else {
+        alert('更新失敗');
+      }
+    }
+
+    function formatDate(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+      return d.toLocaleDateString('zh-TW');
+    }
+
+    init();
+  </script>
+</body>
+</html>
